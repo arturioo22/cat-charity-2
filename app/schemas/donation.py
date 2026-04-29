@@ -1,17 +1,17 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import QRKotBase, Field
+from pydantic import BaseModel, Field
 
 
-class DonationCreate(QRKotBase):
+class DonationCreate(BaseModel):
     """Схема для создания нового пожертвования."""
 
     full_amount: int = Field(..., gt=0)
     comment: Optional[str] = None
 
 
-class DonationDB(QRKotBase):
+class DonationDB(BaseModel):
     """Базовая схема пожертвования с данными из БД."""
 
     id: int
