@@ -60,7 +60,8 @@ class UserManager(IntegerIDMixin, BaseUserManager[User, int]):
     ):
         """Действия после запроса верификации."""
         print(
-            f"Запрошена верификация для пользователя {user.id}. Токен: {token}"
+            f"Запрошена верификация для пользователя {user.id}. "
+            f"Токен: {token}",
         )
 
 
