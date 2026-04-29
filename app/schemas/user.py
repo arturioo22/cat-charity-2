@@ -21,8 +21,8 @@ class UserUpdate(schemas.BaseUserUpdate):
 
     @field_validator('email')
     @classmethod
-    def validate_email(cls, v: Optional[EmailStr]) -> Optional[EmailStr]:
+    def validate_email(cls, value: Optional[EmailStr]) -> Optional[EmailStr]:
         """Валидация email."""
-        if v is not None and '@' not in str(v):
+        if value is not None and '@' not in str(value):
             raise ValueError('value is not a valid email address')
-        return v
+        return value

@@ -1,5 +1,4 @@
 from fastapi_users import FastAPIUsers
-from fastapi_users.exceptions import FastAPIUsersException, UserInactive
 
 from app.core.auth import auth_backend, get_user_manager
 from app.core.exceptions import (user_inactive_handler,
