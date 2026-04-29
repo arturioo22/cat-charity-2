@@ -1,13 +1,13 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import QRKotBase, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.core.constants import (DESCRIPTION_MIN_LENGTH, FULL_AMOUNT_MIN_VALUE,
                                 NAME_LENGTH, NAME_MIN_LENGTH)
 
 
-class CharityProjectCreate(QRKotBase):
+class CharityProjectCreate(BaseModel):
     """Схема для создания нового благотворительного проекта."""
 
     model_config = ConfigDict(extra='forbid')
@@ -35,7 +35,7 @@ class CharityProjectCreate(QRKotBase):
         return value.strip()
 
 
-class CharityProjectUpdate(QRKotBase):
+class CharityProjectUpdate(BaseModel):
     """Схема для обновления существующего благотворительного проекта."""
 
     model_config = ConfigDict(extra='forbid')
@@ -55,7 +55,7 @@ class CharityProjectUpdate(QRKotBase):
     )
 
 
-class CharityProjectDB(QRKotBase):
+class CharityProjectDB(BaseModel):
     """Схема для представления благотворительного проекта в базе данных."""
 
     id: int
