@@ -30,7 +30,7 @@ class UserManager(IntegerIDMixin, BaseUserManager[User, int]):
                 status_code=400,
                 detail={
                     "code": "REGISTER_INVALID_PASSWORD",
-                    "reason": "Пароль не может быть пустым"
+                    "reason": "Пароль не может быть пустым",
                 }
             )
         if len(password) < 3:
@@ -38,7 +38,7 @@ class UserManager(IntegerIDMixin, BaseUserManager[User, int]):
                 status_code=400,
                 detail={
                     "code": "REGISTER_INVALID_PASSWORD",
-                    "reason": "Пароль должен содержать не менее 3 символов"
+                    "reason": "Пароль должен содержать не менее 3 символов",
                 }
             )
         await super().validate_password(password, user)
