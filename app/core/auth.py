@@ -1,3 +1,4 @@
+from http import HTTPStatus
 from typing import Optional
 
 from fastapi import Depends, HTTPException, Request
@@ -8,6 +9,7 @@ from fastapi_users.db import SQLAlchemyUserDatabase
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.core.constants import MIN_PASSWORD_LENGTH
 from app.core.db import get_async_session
 from app.models.user import User
 from app.schemas.user import UserCreate
@@ -27,19 +29,22 @@ class UserManager(IntegerIDMixin, BaseUserManager[User, int]):
         """Валидация пароля."""
         if not password:
             raise HTTPException(
-                status_code=400,
+                status_code=HTTPStatus.BAD_REQUEST,
                 detail={
                     "code": "REGISTER_INVALID_PASSWORD",
                     "reason": "Пароль не может быть пустым",
-                }
+                },
             )
-        if len(password) < 3:
+        if len(password) < MIN_PASSWORD_LENGTH:
             raise HTTPException(
-                status_code=400,
+                status_code=HTTPStatus.BAD_REQUEST,
                 detail={
                     "code": "REGISTER_INVALID_PASSWORD",
-                    "reason": "Пароль должен содержать не менее 3 символов",
-                }
+                    "reason": (
+                        f"Пароль должен содержать не менее "
+                        f"{MIN_PASSWORD_LENGTH} символов"
+                    ),
+                },
             )
         await super().validate_password(password, user)
 
@@ -47,22 +52,16 @@ class UserManager(IntegerIDMixin, BaseUserManager[User, int]):
             self, user: User, request: Optional[Request] = None
     ):
         """Действия после регистрации пользователя."""
-        print(f"Пользователь {user.id} зарегистрирован.")
 
     async def on_after_forgot_password(
         self, user: User, token: str, request: Optional[Request] = None
     ):
         """Действия после запроса сброса пароля."""
-        print(f"Пользователь {user.id} запросил сброс пароля. Токен: {token}")
 
     async def on_after_request_verify(
         self, user: User, token: str, request: Optional[Request] = None
     ):
         """Действия после запроса верификации."""
-        print(
-            f"Запрошена верификация для пользователя {user.id}. "
-            f"Токен: {token}",
-        )
 
 
 async def get_user_db(session: AsyncSession = Depends(get_async_session)):
@@ -80,7 +79,10 @@ bearer_transport = BearerTransport(tokenUrl="auth/jwt/login")
 
 def get_jwt_strategy() -> JWTStrategy:
     """Получение JWT стратегии."""
-    return JWTStrategy(secret=settings.secret_key, lifetime_seconds=3600)
+    return JWTStrategy(
+        secret=settings.secret_key,
+        lifetime_seconds=settings.jwt_lifetime_seconds,
+    )
 
 
 auth_backend = AuthenticationBackend(

@@ -2,6 +2,8 @@ import secrets
 
 from pydantic_settings import BaseSettings
 
+from app.core.constants import JWT_LIFETIME_SECONDS
+
 
 class Settings(BaseSettings):
     """Настройки приложения."""
@@ -10,6 +12,7 @@ class Settings(BaseSettings):
     app_description: str = "Сервис для поддержки котиков"
     database_url: str = "sqlite+aiosqlite:///./qrkot.db"
     secret_key: str = secrets.token_urlsafe(32)
+    jwt_lifetime_seconds: int = JWT_LIFETIME_SECONDS
 
     class Config:
         """Конфигурация Pydantic."""
