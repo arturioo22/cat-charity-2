@@ -1,4 +1,5 @@
 import secrets
+from typing import Optional
 
 from pydantic_settings import BaseSettings
 
@@ -13,6 +14,8 @@ class Settings(BaseSettings):
     database_url: str = "sqlite+aiosqlite:///./qrkot.db"
     secret_key: str = secrets.token_urlsafe(32)
     jwt_lifetime_seconds: int = JWT_LIFETIME_SECONDS
+    google_credentials_file: Optional[str] = None
+    email: Optional[str] = None
 
     class Config:
         """Конфигурация Pydantic."""
