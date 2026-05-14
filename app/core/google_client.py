@@ -1,10 +1,13 @@
+import os
 from typing import Any, Dict, List, Tuple
 
-from googleapiclient.discovery import Resource
+from google.oauth2.service_account import Credentials
+from googleapiclient.discovery import build
 
 from app.core.config import settings
-from app.services.google_api import get_google_services
 
+
+# Ожидаемые тестами переменные
 SCOPES: List[str] = [
     "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/drive.file",
@@ -28,6 +31,28 @@ INFO: Dict[str, Any] = {
 }
 
 
-def get_service() -> Tuple[Resource, Resource]:
+def get_credentials() -> Credentials:
+    """Получение учётных данных для Google API."""
+    creds_file = settings.google_credentials_file
+    if creds_file is None:
+        creds_file = "service_account.json"
+
+    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+    creds_path = os.path.join(base_dir, creds_file)
+
+    credentials = Credentials.from_service_account_file(
+        creds_path,
+        scopes=SCOPES,
+    )
+
+    return credentials
+
+
+def get_service() -> Tuple[Any, Any]:
     """Возвращает сервисы Google Sheets и Google Drive."""
-    return get_google_services()
+    credentials = get_credentials()
+
+    sheets_service = build("sheets", "v4", credentials=credentials)
+    drive_service = build("drive", "v3", credentials=credentials)
+
+    return sheets_service, drive_service

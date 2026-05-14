@@ -1,20 +1,18 @@
-import os
 from datetime import datetime
-from typing import Any, List, Tuple
+from typing import Any, List
 
-from google.oauth2.service_account import Credentials
-from googleapiclient.discovery import Resource, build
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
-from app.models.charity_project import CharityProject
+from app.schemas.report import ProjectReportData
 
 
 async def get_projects_by_completion_rate(
     session: AsyncSession
-) -> List[CharityProject]:
+) -> List[ProjectReportData]:
     """Возвращает список проектов, отсортированных от быстрых к медленным."""
+    from app.models.charity_project import CharityProject
+
     result = await session.execute(
         select(CharityProject).where(
             CharityProject.fully_invested.is_(True),
@@ -25,46 +23,25 @@ async def get_projects_by_completion_rate(
 
     projects_with_time = []
     for project in projects_list:
-        collection_time = project.close_date - project.create_date
-        projects_with_time.append((project, collection_time))
+        data = ProjectReportData(
+            name=project.name,
+            description=project.description,
+            create_date=project.create_date,
+            close_date=project.close_date,
+        )
+        projects_with_time.append((data, data.collection_time))
 
     projects_with_time.sort(key=lambda x: x[1])
 
-    sorted_projects = [project for project, _ in projects_with_time]
-    return sorted_projects
+    return [project for project, _ in projects_with_time]
 
 
-def get_google_credentials() -> Credentials:
-    """Получение учётных данных для Google API."""
-    creds_path = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-        settings.google_credentials_file or "service_account.json"
-    )
-
-    credentials = Credentials.from_service_account_file(
-        creds_path,
-        scopes=[
-            "https://www.googleapis.com/auth/spreadsheets",
-            "https://www.googleapis.com/auth/drive.file",
-        ],
-    )
-
-    return credentials
-
-
-def get_google_services() -> Tuple[Resource, Resource]:
-    """Возвращает сервисы Google Sheets и Google Drive."""
-    credentials = get_google_credentials()
-
-    sheets_service = build("sheets", "v4", credentials=credentials)
-    drive_service = build("drive", "v3", credentials=credentials)
-
-    return sheets_service, drive_service
-
-
-async def create_spreadsheets() -> Tuple[str, str]:
+async def create_spreadsheets() -> tuple[str, str]:
     """Создаёт Google таблицу с отчётом."""
-    sheets_service, drive_service = get_google_services()
+    from app.core.google_client import get_service
+    from app.core.config import settings
+
+    sheets_service, drive_service = get_service()
 
     spreadsheet_body = {
         "properties": {
@@ -72,7 +49,6 @@ async def create_spreadsheets() -> Tuple[str, str]:
                 f"Отчёт фонда QRKot от "
                 f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
             )
-
         }
     }
 
@@ -96,9 +72,11 @@ async def create_spreadsheets() -> Tuple[str, str]:
 
 
 async def set_user_permissions(
-        spreadsheet_id: str, drive_service: Resource
+        spreadsheet_id: str, drive_service: Any
 ) -> None:
     """Выдача прав личному аккаунту на доступ к таблице."""
+    from app.core.config import settings
+
     if settings.email and spreadsheet_id:
         permission = {
             "type": "user",
@@ -117,7 +95,9 @@ async def update_spreadsheets_value(
         spreadsheet_id: str, session: AsyncSession
 ) -> None:
     """Обновляет данные в Google таблице."""
-    sheets_service, _ = get_google_services()
+    from app.core.google_client import get_service
+
+    sheets_service, _ = get_service()
 
     projects = await get_projects_by_completion_rate(session)
 
@@ -129,9 +109,8 @@ async def update_spreadsheets_value(
     ]
 
     for project in projects:
-        collection_time = project.close_date - project.create_date
-        days = collection_time.days
-        seconds = collection_time.seconds
+        days = project.collection_time.days
+        seconds = project.collection_time.seconds
         hours = seconds // 3600
         minutes = (seconds % 3600) // 60
         secs = seconds % 60
@@ -139,12 +118,12 @@ async def update_spreadsheets_value(
         if days > 0:
             time_str = (
                 f"{days} day, {hours:02d}:{minutes:02d}:{secs:02d}."
-                f"{collection_time.microseconds:06d}"
+                f"{project.collection_time.microseconds:06d}"
             )
         else:
             time_str = (
                 f"{hours:02d}:{minutes:02d}:{secs:02d}."
-                f"{collection_time.microseconds:06d}"
+                f"{project.collection_time.microseconds:06d}"
             )
 
         values.append([project.name, time_str, project.description or ""])
