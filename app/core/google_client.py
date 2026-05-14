@@ -1,5 +1,5 @@
 import os
-from typing import Any, Dict, List, Tuple
+from typing import Any, AsyncGenerator, Dict, List, Tuple
 
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
@@ -7,7 +7,6 @@ from googleapiclient.discovery import build
 from app.core.config import settings
 
 
-# Ожидаемые тестами переменные
 SCOPES: List[str] = [
     "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/drive.file",
@@ -48,11 +47,11 @@ def get_credentials() -> Credentials:
     return credentials
 
 
-def get_service() -> Tuple[Any, Any]:
+async def get_service() -> AsyncGenerator[Tuple[Any, Any], None]:
     """Возвращает сервисы Google Sheets и Google Drive."""
     credentials = get_credentials()
 
     sheets_service = build("sheets", "v4", credentials=credentials)
     drive_service = build("drive", "v3", credentials=credentials)
 
-    return sheets_service, drive_service
+    yield sheets_service, drive_service
