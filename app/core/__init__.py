@@ -4,8 +4,6 @@ from app.core.db import get_async_session
 from app.core.google_client import INFO, SCOPES, get_service
 from app.core.user import current_superuser, current_user, fastapi_users
 
-google_client = get_service()
-
 __all__ = [
     "settings",
     "get_async_session",
