@@ -36,21 +36,9 @@ async def get_projects_by_completion_rate(
 
 def get_google_credentials() -> Credentials:
     """Получение учётных данных для Google API."""
-    if not settings.google_credentials_file:
-        raise ValueError(
-            "GOOGLE_CREDENTIALS_FILE не указан в .env файле.\n"
-            "Добавьте GOOGLE_CREDENTIALS_FILE='service_account.json' в .env"
-        )
 
     base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
     creds_path = os.path.join(base_dir, settings.google_credentials_file)
-
-    if not os.path.exists(creds_path):
-        raise FileNotFoundError(
-            f"Файл с учётными данными Google API не найден: {creds_path}\n"
-            f"Убедитесь, что файл {settings.google_credentials_file} "
-            f"находится в корне проекта."
-        )
 
     credentials = Credentials.from_service_account_file(
         creds_path,
