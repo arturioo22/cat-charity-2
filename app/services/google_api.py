@@ -1,9 +1,18 @@
+import copy
 from datetime import datetime
 from typing import Any, List
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
+from app.core.constants import (
+    GOOGLE_SPREADSHEET_BODY_TEMPLATE,
+    SECONDS_IN_HOUR,
+    SECONDS_IN_MINUTE,
+)
+from app.core.google_client import get_service
+from app.models.charity_project import CharityProject
 from app.schemas.report import ProjectReportData
 
 
@@ -11,8 +20,6 @@ async def get_projects_by_completion_rate(
     session: AsyncSession
 ) -> List[ProjectReportData]:
     """Возвращает список проектов, отсортированных от быстрых к медленным."""
-    from app.models.charity_project import CharityProject
-
     result = await session.execute(
         select(CharityProject).where(
             CharityProject.fully_invested.is_(True),
@@ -38,45 +45,35 @@ async def get_projects_by_completion_rate(
 
 async def create_spreadsheets() -> tuple[str, str]:
     """Создаёт Google таблицу с отчётом."""
-    from app.core.google_client import get_service
-    from app.core.config import settings
+    async for sheets_service, drive_service in get_service():
+        spreadsheet_body = copy.deepcopy(GOOGLE_SPREADSHEET_BODY_TEMPLATE)
+        spreadsheet_body["properties"]["title"] = (
+            f"Отчёт фонда QRKot от "
+            f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+        )
 
-    sheets_service, drive_service = get_service()
+        response = sheets_service.spreadsheets().create(
+            body=spreadsheet_body,
+            fields="spreadsheetId,spreadsheetUrl"
+        ).execute()
 
-    spreadsheet_body = {
-        "properties": {
-            "title": (
-                f"Отчёт фонда QRKot от "
-                f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-            )
-        }
-    }
+        spreadsheet_id = response.get("spreadsheetId")
+        spreadsheet_url = response.get("spreadsheetUrl")
 
-    spreadsheet = sheets_service.spreadsheets().create(
-        body=spreadsheet_body,
-        fields="spreadsheetId"
-    ).execute()
+        if not spreadsheet_id:
+            raise ValueError("Не удалось получить ID созданной таблицы")
 
-    spreadsheet_id = spreadsheet.get("spreadsheetId")
-    if not spreadsheet_id:
-        raise ValueError("Не удалось получить ID созданной таблицы")
+        if settings.email:
+            await set_user_permissions(spreadsheet_id, drive_service)
 
-    if settings.email:
-        await set_user_permissions(spreadsheet_id, drive_service)
-
-    spreadsheet_url = (
-        f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/edit"
-    )
-
-    return spreadsheet_id, spreadsheet_url
+        return spreadsheet_id, spreadsheet_url
+    raise RuntimeError("Не удалось получить сервисы Google API")
 
 
 async def set_user_permissions(
         spreadsheet_id: str, drive_service: Any
 ) -> None:
     """Выдача прав личному аккаунту на доступ к таблице."""
-    from app.core.config import settings
-
     if settings.email and spreadsheet_id:
         permission = {
             "type": "user",
@@ -95,43 +92,41 @@ async def update_spreadsheets_value(
         spreadsheet_id: str, session: AsyncSession
 ) -> None:
     """Обновляет данные в Google таблице."""
-    from app.core.google_client import get_service
+    async for sheets_service, _ in get_service():
+        projects = await get_projects_by_completion_rate(session)
 
-    sheets_service, _ = get_service()
+        now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        values: List[List[str]] = [
+            [f"Отчёт от {now_str}", "", ""],
+            ["Топ проектов по скорости закрытия", "", ""],
+            ["Название проекта", "Время сбора", "Описание"],
+        ]
 
-    projects = await get_projects_by_completion_rate(session)
+        for project in projects:
+            days = project.collection_time.days
+            seconds = project.collection_time.seconds
+            hours = seconds // SECONDS_IN_HOUR
+            minutes = (seconds % SECONDS_IN_HOUR) // SECONDS_IN_MINUTE
+            secs = seconds % SECONDS_IN_MINUTE
 
-    now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    values: List[List[str]] = [
-        [f"Отчёт от {now_str}", "", ""],
-        ["Топ проектов по скорости закрытия", "", ""],
-        ["Название проекта", "Время сбора", "Описание"],
-    ]
+            if days > 0:
+                time_str = (
+                    f"{days} day, {hours:02d}:{minutes:02d}:{secs:02d}."
+                    f"{project.collection_time.microseconds:06d}"
+                )
+            else:
+                time_str = (
+                    f"{hours:02d}:{minutes:02d}:{secs:02d}."
+                    f"{project.collection_time.microseconds:06d}"
+                )
 
-    for project in projects:
-        days = project.collection_time.days
-        seconds = project.collection_time.seconds
-        hours = seconds // 3600
-        minutes = (seconds % 3600) // 60
-        secs = seconds % 60
+            values.append([project.name, time_str, project.description or ""])
 
-        if days > 0:
-            time_str = (
-                f"{days} day, {hours:02d}:{minutes:02d}:{secs:02d}."
-                f"{project.collection_time.microseconds:06d}"
-            )
-        else:
-            time_str = (
-                f"{hours:02d}:{minutes:02d}:{secs:02d}."
-                f"{project.collection_time.microseconds:06d}"
-            )
-
-        values.append([project.name, time_str, project.description or ""])
-
-    body: dict[str, Any] = {"values": values}
-    sheets_service.spreadsheets().values().update(
-        spreadsheetId=spreadsheet_id,
-        range="A1:C",
-        valueInputOption="RAW",
-        body=body,
-    ).execute()
+        body: dict[str, Any] = {"values": values}
+        sheets_service.spreadsheets().values().update(
+            spreadsheetId=spreadsheet_id,
+            range="A1:C",
+            valueInputOption="RAW",
+            body=body,
+        ).execute()
+        break

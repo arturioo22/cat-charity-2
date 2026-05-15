@@ -5,11 +5,18 @@ from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 
 from app.core.config import settings
+from app.core.constants import (
+    GOOGLE_AUTH_PROVIDER_X509_CERT_URL,
+    GOOGLE_AUTH_URI,
+    GOOGLE_DRIVE_SCOPE,
+    GOOGLE_SHEETS_SCOPE,
+    GOOGLE_TOKEN_URI,
+)
 
 
 SCOPES: List[str] = [
-    "https://www.googleapis.com/auth/spreadsheets",
-    "https://www.googleapis.com/auth/drive.file",
+    GOOGLE_SHEETS_SCOPE,
+    GOOGLE_DRIVE_SCOPE,
 ]
 
 INFO: Dict[str, Any] = {
@@ -19,12 +26,10 @@ INFO: Dict[str, Any] = {
     "private_key": settings.private_key or "test",
     "client_email": settings.client_email or "test@test.com",
     "client_id": settings.client_id or "test",
-    "auth_uri": settings.auth_uri or (
-        "https://accounts.google.com/o/oauth2/auth"
-    ),
-    "token_uri": settings.token_uri or "https://oauth2.googleapis.com/token",
+    "auth_uri": settings.auth_uri or GOOGLE_AUTH_URI,
+    "token_uri": settings.token_uri or GOOGLE_TOKEN_URI,
     "auth_provider_x509_cert_url": settings.auth_provider_x509_cert_url or (
-        "https://www.googleapis.com/oauth2/v1/certs"
+        GOOGLE_AUTH_PROVIDER_X509_CERT_URL
     ),
     "client_x509_cert_url": settings.client_x509_cert_url or "",
 }

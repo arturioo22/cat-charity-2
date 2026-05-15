@@ -1,7 +1,7 @@
 from http import HTTPStatus
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_async_session
@@ -26,8 +26,31 @@ async def create_report(
     Создаёт Google таблицу с отчётом о закрытых проектах.
     Только для суперпользователей.
     """
-    spreadsheet_id, spreadsheet_url = await create_spreadsheets()
-    await update_spreadsheets_value(spreadsheet_id, session)
+    try:
+        spreadsheet_id, spreadsheet_url = await create_spreadsheets()
+    except FileNotFoundError as e:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND,
+            detail=f"Файл с учётными данными Google API не найден: {str(e)}"
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=HTTPStatus.BAD_REQUEST,
+            detail=f"Ошибка в настройках Google API: {str(e)}"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
+            detail=f"Не удалось создать Google таблицу: {str(e)}"
+        )
+
+    try:
+        await update_spreadsheets_value(spreadsheet_id, session)
+    except Exception as e:
+        raise HTTPException(
+            status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
+            detail=f"Не удалось заполнить Google таблицу данными: {str(e)}"
+        )
 
     return {
         "status": "success",
