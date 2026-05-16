@@ -30,7 +30,9 @@ GOOGLE_SHEETS_SCOPE: str = "https://www.googleapis.com/auth/spreadsheets"
 GOOGLE_DRIVE_SCOPE: str = "https://www.googleapis.com/auth/drive.file"
 GOOGLE_AUTH_URI: str = "https://accounts.google.com/o/oauth2/auth"
 GOOGLE_TOKEN_URI: str = "https://oauth2.googleapis.com/token"
-GOOGLE_AUTH_PROVIDER_X509_CERT_URL: str = "https://www.googleapis.com/oauth2/v1/certs"
+GOOGLE_AUTH_PROVIDER_X509_CERT_URL: str = (
+    "https://www.googleapis.com/oauth2/v1/certs"
+)
 
 # Шаблон для создания таблицы
 GOOGLE_SPREADSHEET_BODY_TEMPLATE: dict = {
